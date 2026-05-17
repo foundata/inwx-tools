@@ -14,53 +14,9 @@ Helper scripts and tools to administer, provision and/or manage tasks related to
 
 **Helper to *quickly* create additional sub-user accounts.**
 
-Creates a sub-user account with parent account contact data as default, and optionally grants [INWX roles](https://account.inwx.de/en/help/apidoc/f/ch02.html#account.addrole).
+Creates a sub-user account with parent account contact data as default, and optionally grants [INWX roles](https://account.inwx.de/en/help/apidoc/f/ch02.html#account.addrole):
 
-API credentials are read from environment variables. If a variable is missing, the script prompts for it interactively:
-
-```sh
-export INWX_API_USER='...'
-export INWX_API_PASSWORD='...'
-export INWX_API_OTPSECRET='...' # optional unless the account requires 2FA
-```
-
-By default the script uses the production INWX API. Pass `--ote` for the [INWX OT&E](https://ote.inwx.com/de) test API.
-
-```sh
-./inwx-create-user.py new-example-user --generate-password --role-id 20004
-./inwx-create-user.py new-example-user --ote --generate-password --role-id 20001 --role-id 20004
-./inwx-create-user.py new-example-user --password
-```
-
-INWX creates sub-users with Full Access (`20000`) by default; this helper removes that role unless you explicitly pass `--role-id 20000` or `--keep-full-access`. For [ACME DNS-01](https://letsencrypt.org/docs/challenge-types/#dns-01-challenge) clients, pass `--role-id 20004` to grant the DNS role to manage DNS resource records:
-
-```sh
-./inwx-create-user.py acme-client-example --role-id 20004
-```
-
-The helper copies the parent account contact data from `account.info` and uses it for the required `account.create` fields. Override individual fields when needed:
-
-```sh
-./inwx-create-user.py acme-example \
-  --email "acme-admin@example.org" \
-  --firstname "ACME" \
-  --lastname "Automation" \
-  --generate-password
-```
-
-For machine-readable output:
-
-```sh
-./inwx-create-user.py acme-example --generate-password --json
-```
-
-By default the script stores the created sub-user details next to the script as `YYYYMMDDTHHMMSS_username.txt` with file mode `0600`. The file contains the created account id, role ids, and the `INWX_API_USER` / `INWX_API_PASSWORD` values for the sub-user when a password was set or generated. Disable that file with:
-
-```sh
-./inwx-create-user.py acme-example --generate-password --no-output-file
-```
-
-Full help:
+![inwx-create-user-py-001.png](./assets/images/inwx-create-user-py-001.png)
 
 ```
 ./inwx-create-user.py --help
@@ -109,11 +65,53 @@ options:
   --voice VOICE         Sub-account phone number. Defaults to parent phone number.
 ```
 
-Screenshot:
+### Usage notes
 
-![inwx-create-user-py-001.png](./assets/images/inwx-create-user-py-001.png)
+API credentials are read from environment variables. If a variable is missing, the script prompts for it interactively:
 
-**Important note on deleting users** (as of 2026-Q2): Unfortunately, user accounts cannot be fully deleted by the customer. When a user is created and later deleted via the Web UI or API, a new user with the same username cannot be created again afterwards, as the system will return `code 2302: Object exists`.<br> Deleting a user therefore only makes the account invisible and deactivates it; the user object still remains in the system. If the same username is absolutely required again, INWX Support must be contacted.
+```sh
+export INWX_API_USER='...'
+export INWX_API_PASSWORD='...'
+export INWX_API_OTPSECRET='...' # optional unless the account requires 2FA
+```
+
+By default the script uses the production INWX API. Pass `--ote` for the [INWX OT&E](https://ote.inwx.com/de) test API.
+
+```sh
+./inwx-create-user.py new-example-user --generate-password --role-id 20004
+./inwx-create-user.py new-example-user --ote --generate-password --role-id 20001 --role-id 20004
+./inwx-create-user.py new-example-user --password
+```
+
+INWX creates sub-users with Full Access (`20000`) by default; this helper removes that role unless you explicitly pass `--role-id 20000` or `--keep-full-access`. For [ACME DNS-01](https://letsencrypt.org/docs/challenge-types/#dns-01-challenge) clients, pass `--role-id 20004` to grant the DNS role to manage DNS resource records:
+
+```sh
+./inwx-create-user.py acme-client-example --role-id 20004
+```
+
+The helper copies the parent account contact data from `account.info` and uses it for the required `account.create` fields. Override individual fields when needed:
+
+```sh
+./inwx-create-user.py acme-example \
+  --email "acme-admin@example.org" \
+  --firstname "ACME" \
+  --lastname "Automation" \
+  --generate-password
+```
+
+For machine-readable output:
+
+```sh
+./inwx-create-user.py acme-example --generate-password --json
+```
+
+By default the script stores the created sub-user details next to the script as `YYYYMMDDTHHMMSS_username.txt` with file mode `0600`. The file contains the created account id, role ids, and the `INWX_API_USER` / `INWX_API_PASSWORD` values for the sub-user when a password was set or generated. Disable that file with:
+
+```sh
+./inwx-create-user.py acme-example --generate-password --no-output-file
+```
+
+**Important note on deleting users:** As of 2026-Q2, user accounts cannot be fully deleted by the customer. When a user is created and later deleted via the Web UI or API, a new user with the same username cannot be created again afterwards, as the system will return `code 2302: Object exists`.<br> Deleting a user therefore only makes the account invisible and deactivates it; the user object still remains in the system. If the same username is absolutely required again, INWX Support must be contacted.
 
 
 ## Licensing, copyright<a id="licensing-copyright"></a>

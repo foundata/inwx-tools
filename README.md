@@ -3,6 +3,18 @@
 Helper scripts and tools to administer, provision and/or manage tasks related to [INWX](https://www.inwx.de/), a well known professional domain provider.
 
 
+<div align="center" id="project-readme-header">
+<br>
+<br>
+
+**⭐ Found this useful? Support open-source and star this project:**
+
+[![GitHub repository](https://img.shields.io/github/stars/foundata/inwx-tools.svg)](https://github.com/foundata/inwx-tools)
+
+<br>
+</div>
+
+
 
 ## Table of contents<a id="toc"></a>
 

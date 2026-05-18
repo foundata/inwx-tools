@@ -38,6 +38,7 @@ API_OTE_URL = "https://api.ote.domrobot.com"
 API_LIVE_URL = "https://api.domrobot.com"
 SUCCESS_CODE = 1000
 FULL_ACCESS_ROLE_ID = 20000
+VERSION = "1.0.0" # Semantic Versioning, https://semver.org/
 
 
 class InwxApiError(RuntimeError):
@@ -74,7 +75,7 @@ class InwxClient:
             data=payload.encode("UTF-8"),
             headers={
                 "Content-Type": "text/xml; charset=UTF-8",
-                "User-Agent": f"inwx-create-user/1.0.0 (Python {sys.version_info.major}.{sys.version_info.minor})",
+                "User-Agent": f"inwx-create-user/{VERSION} (Python {sys.version_info.major}.{sys.version_info.minor})",
             },
             method="POST",
         )

@@ -38,7 +38,8 @@ API_OTE_URL = "https://api.ote.domrobot.com"
 API_LIVE_URL = "https://api.domrobot.com"
 SUCCESS_CODE = 1000
 FULL_ACCESS_ROLE_ID = 20000
-VERSION = "1.0.0" # Semantic Versioning, https://semver.org/
+VERSION = "1.1.0"  # Semantic Versioning, https://semver.org/
+OBJECT_EXISTS_CODE = 2302
 
 
 class InwxApiError(RuntimeError):
@@ -208,6 +209,63 @@ def unique_ints(values: list[int]) -> list[int]:
     return result
 
 
+def role_ids_from_response(response: dict[str, Any]) -> list[int]:
+    roles = response.get("resData", {}).get("roles", [])
+    role_ids: list[int] = []
+    for role in roles:
+        if isinstance(role, dict):
+            role_id = role.get("id", role.get("roleId"))
+        else:
+            role_id = role
+        if role_id in (None, ""):
+            continue
+        role_ids.append(int(role_id))
+    return unique_ints(role_ids)
+
+
+def find_subaccount(client: InwxClient, username: str) -> dict[str, Any] | None:
+    accounts = client.expect_ok("account.list").get("resData", {}).get("accounts", [])
+    for account in accounts:
+        if str(account.get("username", "")).lower() == username.lower():
+            return account
+    return None
+
+
+def desired_roles(args: argparse.Namespace) -> list[int]:
+    requested_roles = unique_ints(args.role_id)
+    keep_full_access = args.keep_full_access or FULL_ACCESS_ROLE_ID in requested_roles
+    return unique_ints(
+        ([FULL_ACCESS_ROLE_ID] if keep_full_access else [])
+        + [role_id for role_id in requested_roles if role_id != FULL_ACCESS_ROLE_ID]
+    )
+
+
+def sync_roles(
+    client: InwxClient, account_id: int, target_roles: list[int]
+) -> tuple[list[int], list[int], list[int]]:
+    current_roles = role_ids_from_response(
+        client.expect_ok("account.getroles", {"accountId": account_id})
+    )
+    to_remove = [role_id for role_id in current_roles if role_id not in target_roles]
+    to_add = [role_id for role_id in target_roles if role_id not in current_roles]
+
+    removed_roles: list[int] = []
+    added_roles: list[int] = []
+    for role_id in to_remove:
+        client.expect_ok(
+            "account.removerole",
+            {"accountId": account_id, "roleId": role_id},
+        )
+        removed_roles.append(role_id)
+    for role_id in to_add:
+        client.expect_ok(
+            "account.addrole",
+            {"accountId": account_id, "roleId": role_id},
+        )
+        added_roles.append(role_id)
+    return target_roles, added_roles, removed_roles
+
+
 def safe_filename_part(value: str) -> str:
     safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("._")
     return safe or "subuser"
@@ -256,11 +314,16 @@ def write_created_user_file(result: dict[str, Any], require_2fa: bool) -> Path:
 
 
 def set_initial_password(
-    client: InwxClient, username: str, password: str, retries: int, retry_delay: int
+    client: InwxClient,
+    username: str,
+    password: str,
+    retries: int,
+    retry_delay: int,
+    current_password: str = "",
 ) -> None:
     params = {
         "username": username,
-        "currentpassword": "",
+        "currentpassword": current_password,
         "password": password,
     }
     last_response: dict[str, Any] | None = None
@@ -371,6 +434,14 @@ def parse_args() -> argparse.Namespace:
         "--json", action="store_true", help="Print machine-readable result JSON."
     )
     parser.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "If the username already exists, update that sub-user's roles and "
+            "password instead of failing."
+        ),
+    )
+    parser.add_argument(
         "--no-output-file",
         action="store_true",
         help="Do not write the created sub-user credentials file next to this script.",
@@ -381,6 +452,15 @@ def parse_args() -> argparse.Namespace:
         nargs="?",
         const="",
         help="Password for the new sub-account. If used without a value, prompt securely.",
+    )
+    parser.add_argument(
+        "--current-password",
+        nargs="?",
+        const="",
+        help=(
+            "Current password for an existing sub-account when using --force. "
+            "If used without a value, prompt securely."
+        ),
     )
     parser.add_argument(
         "--generate-password",
@@ -456,6 +536,8 @@ def parse_args() -> argparse.Namespace:
         args.password = getpass.getpass("New sub-account password: ")
     elif args.generate_password:
         args.password = generated_password()
+    if args.current_password == "":
+        args.current_password = getpass.getpass("Current sub-account password: ")
     return args
 
 
@@ -474,39 +556,28 @@ def main() -> int:
     try:
         parent_info = client.expect_ok("account.info", {"wide": 1}).get("resData", {})
         create_params = build_create_params(args, parent_info)
-        create_response = client.expect_ok("account.create", create_params)
-        account_id = create_response.get("resData", {}).get("id")
+        create_response = client.call("account.create", create_params)
+        action = "created"
+        if create_response.get("code") == SUCCESS_CODE:
+            account_id = create_response.get("resData", {}).get("id")
+        elif create_response.get("code") == OBJECT_EXISTS_CODE and args.force:
+            existing_account = find_subaccount(client, args.username)
+            if not existing_account:
+                raise RuntimeError(
+                    f"account.create says username {args.username!r} already exists, "
+                    "but account.list did not return a matching sub-account. "
+                    "The account may be deleted/inactive or not manageable by this API user."
+                )
+            account_id = existing_account.get("id")
+            action = "updated"
+        else:
+            raise InwxApiError("account.create", create_response)
         if not account_id:
-            raise RuntimeError(
-                f"account.create succeeded but returned no account id: {create_response!r}"
-            )
+            raise RuntimeError(f"Could not determine account id for {args.username!r}.")
 
-        requested_roles = unique_ints(args.role_id)
-        keep_full_access = (
-            args.keep_full_access or FULL_ACCESS_ROLE_ID in requested_roles
+        assigned_roles, added_roles, removed_roles = sync_roles(
+            client, int(account_id), desired_roles(args)
         )
-        removed_roles: list[int] = []
-        added_roles: list[int] = []
-        assigned_roles = unique_ints(
-            ([FULL_ACCESS_ROLE_ID] if keep_full_access else [])
-            + [role_id for role_id in requested_roles if role_id != FULL_ACCESS_ROLE_ID]
-        )
-
-        if not keep_full_access:
-            client.expect_ok(
-                "account.removerole",
-                {"accountId": int(account_id), "roleId": FULL_ACCESS_ROLE_ID},
-            )
-            removed_roles.append(FULL_ACCESS_ROLE_ID)
-
-        for role_id in requested_roles:
-            if role_id == FULL_ACCESS_ROLE_ID:
-                continue
-            client.expect_ok(
-                "account.addrole",
-                {"accountId": int(account_id), "roleId": int(role_id)},
-            )
-            added_roles.append(int(role_id))
 
         if args.password:
             set_initial_password(
@@ -515,10 +586,12 @@ def main() -> int:
                 args.password,
                 args.password_retries,
                 args.password_retry_delay,
+                current_password=args.current_password or "",
             )
 
         result = {
             "api_url": api_url,
+            "action": action,
             "username": args.username,
             "accountId": int(account_id),
             "roles": assigned_roles,
@@ -536,7 +609,7 @@ def main() -> int:
             print(json.dumps(result, sort_keys=True))
         else:
             print(
-                f"created INWX sub-account {args.username!r} with accountId {account_id}"
+                f"{action} INWX sub-account {args.username!r} with accountId {account_id}"
             )
             if removed_roles:
                 print(

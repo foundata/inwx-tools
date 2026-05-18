@@ -34,9 +34,11 @@ Creates a sub-user account with parent account contact data as default, and opti
 
 ```
 ./inwx-create-user.py --help
-usage: inwx-create-user.py [-h] [--ote] [--api-url API_URL] [--language LANGUAGE] [--debug] [--json] [--no-output-file]
-                           [--password [PASSWORD]] [--generate-password] [--password-retries PASSWORD_RETRIES]
-                           [--password-retry-delay PASSWORD_RETRY_DELAY] [--require-2fa] [--role-id ROLE_ID] [--keep-full-access]
+usage: inwx-create-user.py [-h] [--ote] [--api-url API_URL] [--language LANGUAGE] [--debug] [--json] [--force]
+                           [--no-output-file] [--password [PASSWORD]] [--current-password [CURRENT_PASSWORD]]
+                           [--generate-password] [--password-retries PASSWORD_RETRIES]
+                           [--password-retry-delay PASSWORD_RETRY_DELAY] [--require-2fa] [--role-id ROLE_ID]
+                           [--keep-full-access]
                            [--email EMAIL] [--title TITLE] [--firstname FIRSTNAME] [--lastname LASTNAME] [--street STREET] [--pc PC]
                            [--city CITY] [--cc CC] [--org ORG] [--voice VOICE]
                            username
@@ -53,9 +55,12 @@ options:
   --language LANGUAGE   INWX language code. Default: EN.
   --debug               Print redacted XML-RPC call metadata to stderr.
   --json                Print machine-readable result JSON.
+  --force               If the username already exists, update that sub-user's roles and password instead of failing.
   --no-output-file      Do not write the created sub-user credentials file next to this script.
   --password [PASSWORD]
                         Password for the new sub-account. If used without a value, prompt securely.
+  --current-password [CURRENT_PASSWORD]
+                        Current password for an existing sub-account when using --force. If used without a value, prompt securely.
   --generate-password   Generate and set a password for the new sub-account.
   --password-retries PASSWORD_RETRIES
                         Retries for the initial password change after account.create. Default: 6.
@@ -95,7 +100,10 @@ By default the script uses the production INWX API. Pass `--ote` for the [INWX O
 ./inwx-create-user.py new-example-user --generate-password --role-id 20004
 ./inwx-create-user.py new-example-user --ote --generate-password --role-id 20001 --role-id 20004
 ./inwx-create-user.py new-example-user --password
+./inwx-create-user.py existing-example-user --force --generate-password --current-password --role-id 20004
 ```
+
+With `--force`, the script handles an existing visible sub-user by setting its role set to the requested roles. If `--password` or `--generate-password` is used for an existing sub-user, INWX usually requires the current sub-user password; pass it with `--current-password`, or use `--current-password` without a value to be prompted securely. Without `--force`, an existing username still fails with the INWX API error.
 
 INWX creates sub-users with Full Access (`20000`) by default; this helper removes that role unless you explicitly pass `--role-id 20000` or `--keep-full-access`. For [ACME DNS-01](https://letsencrypt.org/docs/challenge-types/#dns-01-challenge) clients, pass `--role-id 20004` to grant the DNS role to manage DNS resource records:
 

@@ -151,7 +151,7 @@ The [`REUSE.toml`](./REUSE.toml) file provides detailed licensing and copyright 
 
 ### Trademarks<a id="trademarks"></a>
 
-* [INWX® is a trademark](https://register.dpma.de/DPMAregister/marke/registerhabm?AKZ=018729512) of INWX GmbH, registered Germany and probably other countries.
+* [INWX® is a trademark](https://register.dpma.de/DPMAregister/marke/registerhabm?AKZ=018729512) of INWX GmbH, registered in Germany and probably other countries.
 
 
 ## Author information<a id="author-information"></a>

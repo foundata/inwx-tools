@@ -34,11 +34,11 @@ import xmlrpc.client
 from typing import Any
 
 
+VERSION = "1.1.0" # Semantic Versioning, https://semver.org/
 API_OTE_URL = "https://api.ote.domrobot.com"
 API_LIVE_URL = "https://api.domrobot.com"
 SUCCESS_CODE = 1000
 FULL_ACCESS_ROLE_ID = 20000
-VERSION = "1.1.0"  # Semantic Versioning, https://semver.org/
 OBJECT_EXISTS_CODE = 2302
 
 

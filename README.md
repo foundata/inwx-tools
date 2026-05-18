@@ -19,7 +19,9 @@ Helper scripts and tools to administer, provision and/or manage tasks related to
 ## Table of contents<a id="toc"></a>
 
 - [`inwx-create-user.py`](#inwx-create-user)
-
+- [Licensing, copyright](#licensing-copyright)
+  - [Trademarks](#trademarks)
+- [Author information](#author-information)
 
 
 ## `inwx-create-user.py`<a id="inwx-create-user"></a>
